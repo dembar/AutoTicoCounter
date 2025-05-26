@@ -3,6 +3,7 @@ from tkinter import ttk
 from datetime import datetime, timedelta
 import json
 import os
+import calendar
 
 class TimeTracker:
     def __init__(self):
@@ -12,10 +13,20 @@ class TimeTracker:
 
         # Initialize project management
         self.projects_file = "projects.txt"
-        self.time_records_file = "time_records.json"
+        self.time_records_file = "records.txt"
         self.project_data = {}  # Dict to store project data {id: name}
         self.load_projects()
         
+        # Create session log file with current date-time
+        current_date = datetime.now().strftime('%Y%m%d')
+        current_time = datetime.now().strftime('%H%M%S')
+        self.session_log = f"session_{current_date}_{current_time}.txt"
+        
+        self.current_project = None
+        self.start_time = None
+        self.is_tracking = False
+        self.daily_records = self.load_records()
+
         # Create main frame for pages
         self.main_frame = tk.Frame(self.root)
         self.main_frame.pack(fill=tk.BOTH, expand=True)
@@ -23,39 +34,6 @@ class TimeTracker:
         # Create preview page
         self.create_preview_page()
 
-    def load_projects(self):
-        try:
-            if os.path.exists(self.projects_file):
-                with open(self.projects_file, 'r') as f:
-                    projects_data = [line.strip().split('|') for line in f.readlines()]
-                    self.project_data = {pid: name for pid, name in projects_data if pid and name}
-                    if not self.project_data:
-                        self.initialize_default_projects()
-            else:
-                self.initialize_default_projects()
-        except (FileNotFoundError, ValueError):
-            self.initialize_default_projects()
-
-    def initialize_default_projects(self):
-        import uuid
-        default_projects = ["Project 1", "Project 2", "Project 3"]
-        self.project_data = {str(uuid.uuid4()): name for name in default_projects}
-        self.save_projects()
-
-    def save_projects(self):
-        with open(self.projects_file, 'w') as f:
-            for project_id, name in self.project_data.items():
-                f.write(f"{project_id}|{name}\n")
-
-    def get_project_id_by_name(self, project_name):
-        for pid, name in self.project_data.items():
-            if name == project_name:
-                return pid
-        return None
-
-    def get_project_name_by_id(self, project_id):
-        return self.project_data.get(project_id)
-        
     def create_preview_page(self):
         self.preview_frame = tk.Frame(self.main_frame)
         self.preview_frame.pack(fill=tk.BOTH, expand=True)
@@ -95,23 +73,30 @@ class TimeTracker:
         project_entry = tk.Entry(entry_frame)
         project_entry.pack(pady=5)
 
-        # Buttons
+        # Add button
         tk.Button(entry_frame, text="Add Project", 
                  command=lambda: self.add_project(project_entry.get(), dialog)).pack(pady=5)
 
-        # Project list
+        # Project list frame
         list_frame = tk.Frame(dialog)
         list_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
         
-        project_list = tk.Listbox(list_frame)
-        project_list.pack(fill=tk.BOTH, expand=True)
+        # Project list with scrollbar
+        scrollbar = tk.Scrollbar(list_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        for project in self.projects:
-            project_list.insert(tk.END, project)
+        project_list = tk.Listbox(list_frame, selectmode=tk.MULTIPLE, yscrollcommand=scrollbar.set)
+        project_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        scrollbar.config(command=project_list.yview)
+        
+        # Fill project list
+        for project_name in self.project_data.values():
+            project_list.insert(tk.END, project_name)
 
         # Delete button
         tk.Button(list_frame, text="Delete Selected", 
-                 command=lambda: self.delete_project(project_list.curselection(), dialog)).pack(pady=5)
+                 command=lambda: self.delete_project(project_list.curselection(), project_list, dialog)).pack(pady=5)
 
     def add_project(self, project_name, dialog):
         if project_name and project_name not in self.project_data.values():
@@ -123,73 +108,54 @@ class TimeTracker:
             dialog.destroy()
             self.show_modify_dialog()
 
-    def delete_project(self, selections, dialog):
+    def delete_project(self, selections, project_list, dialog):
         if selections:
-            indices = list(selections)
-            indices.sort(reverse=True)
-            project_ids = list(self.project_data.keys())
-            for idx in indices:
-                if idx < len(project_ids):
-                    del self.project_data[project_ids[idx]]
+            # Get the selected project names
+            selected_names = [project_list.get(idx) for idx in selections]
+            
+            # Find and delete the corresponding project IDs
+            for project_name in selected_names:
+                project_id = self.get_project_id_by_name(project_name)
+                if project_id in self.project_data:
+                    del self.project_data[project_id]
+            
             self.save_projects()
             self.update_project_list()
             dialog.destroy()
             self.show_modify_dialog()
 
-    def show_timer_page(self):
-        # Hide preview frame
-        self.preview_frame.pack_forget()
-        
-        # Create and show timer frame
-        self.create_timer_page()
+    def load_projects(self):
+        try:
+            if os.path.exists(self.projects_file):
+                with open(self.projects_file, 'r') as f:
+                    projects_data = [line.strip().split('|') for line in f.readlines()]
+                    self.project_data = {pid: name for pid, name in projects_data if pid and name}
+                    if not self.project_data:
+                        self.initialize_default_projects()
+            else:
+                self.initialize_default_projects()
+        except (FileNotFoundError, ValueError):
+            self.initialize_default_projects()
 
-    def create_timer_page(self):
-        self.timer_frame = tk.Frame(self.main_frame)
-        self.timer_frame.pack(fill=tk.BOTH, expand=True)
+    def initialize_default_projects(self):
+        import uuid
+        default_projects = ["Project 1", "Project 2", "Project 3"]
+        self.project_data = {str(uuid.uuid4()): name for name in default_projects}
+        self.save_projects()
 
-        # Create new session log file when timer page is created
-        self.session_log = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+    def save_projects(self):
+        with open(self.projects_file, 'w') as f:
+            for project_id, name in self.project_data.items():
+                f.write(f"{project_id}|{name}\n")
 
-        # Project selection
-        self.project_var = tk.StringVar()
-        self.project_dropdown = ttk.Combobox(self.timer_frame, textvariable=self.project_var, 
-                                           values=list(self.project_data.values()))
-        self.project_dropdown.set("Select Project")
-        self.project_dropdown.pack(pady=20)
+    def get_project_id_by_name(self, project_name):
+        for pid, name in self.project_data.items():
+            if name == project_name:
+                return pid
+        return None
 
-        # Timer display
-        self.timer_label = tk.Label(self.timer_frame, text="00:00:00", font=("Arial", 24))
-        self.timer_label.pack(pady=20)
-        
-        # Control buttons frame
-        control_frame = tk.Frame(self.timer_frame)
-        control_frame.pack(pady=10)
-        
-        # Start and Stop buttons in the same line
-        self.start_button = tk.Button(control_frame, text="Start", command=self.start_timer, width=12)
-        self.start_button.pack(side=tk.LEFT, padx=5)
-        
-        self.stop_button = tk.Button(control_frame, text="Stop", command=self.stop_timer, state=tk.DISABLED, width=12)
-        self.stop_button.pack(side=tk.LEFT, padx=5)
-
-        # Bottom buttons frame
-        bottom_frame = tk.Frame(self.timer_frame)
-        bottom_frame.pack(pady=10)
-
-        # Generate report and Back buttons in the same line
-        self.report_button = tk.Button(bottom_frame, text="Generate Report", command=self.generate_report, width=12)
-        self.report_button.pack(side=tk.LEFT, padx=5)
-
-        self.back_button = tk.Button(bottom_frame, text="Back to Projects", command=self.show_preview_page, width=12)
-        self.back_button.pack(side=tk.LEFT, padx=5)
-
-        # Initialize timer variables
-        self.current_project = None
-        self.start_time = None
-        self.is_tracking = False
-        self.daily_records = self.load_records()
-        
-        self.update_timer()
+    def get_project_name_by_id(self, project_id):
+        return self.project_data.get(project_id)
 
     def show_preview_page(self):
         self.timer_frame.pack_forget()
@@ -198,17 +164,24 @@ class TimeTracker:
     def load_records(self):
         try:
             if os.path.exists(self.time_records_file):
+                records = {}
                 with open(self.time_records_file, 'r') as f:
-                    all_records = json.load(f)
+                    for line in f:
+                        parts = line.strip().split('|')
+                        if len(parts) == 3:  # project_id|timestamp|seconds
+                            project_id, timestamp, seconds = parts
+                            if project_id not in records:
+                                records[project_id] = []
+                            records[project_id].append(float(timestamp))
+                            records[project_id].append(int(seconds))
                 
-                # Create a new dictionary for today's records
+                # Filter for today's records only
                 today_records = {pid: [] for pid in self.project_data.keys()}
                 today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
                 today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999).timestamp()
                 
-                # Only copy times from today to the new records
-                for project_id, times in all_records.items():
-                    if project_id in self.project_data:  # Check by ID instead of name
+                for project_id, times in records.items():
+                    if project_id in self.project_data:
                         for i in range(0, len(times), 2):
                             if i + 1 < len(times):
                                 timestamp = times[i]
@@ -217,18 +190,37 @@ class TimeTracker:
                                     today_records[project_id].append(times[i + 1])
                 
                 return today_records
-        except FileNotFoundError:
+        except (FileNotFoundError, ValueError):
             pass
         
         return {pid: [] for pid in self.project_data.keys()}
 
-    def is_from_today(self, timestamp):
-        today = datetime.now().date()
-        return datetime.fromtimestamp(timestamp).date() == today
-
     def save_records(self):
-        with open('time_records.json', 'w') as f:
-            json.dump(self.daily_records, f)
+        # Read existing records that aren't from today
+        existing_records = []
+        if os.path.exists(self.time_records_file):
+            today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+            with open(self.time_records_file, 'r') as f:
+                for line in f:
+                    parts = line.strip().split('|')
+                    if len(parts) == 3:
+                        _, timestamp, _ = parts
+                        if float(timestamp) < today_start:
+                            existing_records.append(line.strip())
+
+        # Write back old records and append today's records
+        with open(self.time_records_file, 'w') as f:
+            # Write old records
+            for record in existing_records:
+                f.write(record + '\n')
+            
+            # Write today's records
+            for project_id, times in self.daily_records.items():
+                for i in range(0, len(times), 2):
+                    if i + 1 < len(times):
+                        timestamp = times[i]
+                        seconds = times[i + 1]
+                        f.write(f"{project_id}|{timestamp}|{seconds}\n")
 
     def start_timer(self):
         project_name = self.project_var.get()
@@ -254,11 +246,30 @@ class TimeTracker:
             self.daily_records[self.current_project].append(total_seconds)
             self.save_records()
             
-            # Save to session log file with project name
+            # Save to session log file with project name and time
             project_name = self.get_project_name_by_id(self.current_project)
             with open(self.session_log, 'a') as f:
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 f.write(f"{timestamp} - {project_name}: {self.format_time(total_seconds)}\n")
+            
+            # Generate updated daily summary
+            session_date = datetime.now().strftime('%Y%m%d')
+            all_sessions_today = [f for f in os.listdir() if f.startswith(f'session_{session_date}')]
+            
+            # Combine all sessions for today
+            combined_times = {}
+            for session_file in all_sessions_today:
+                times = self.sum_session_times(session_file, generate_file=False)
+                for project, seconds in times.items():
+                    if project not in combined_times:
+                        combined_times[project] = 0
+                    combined_times[project] += seconds
+            
+            # Write daily summary
+            with open(f"Session_Summary_{session_date}.txt", 'w') as f:
+                for project_name in sorted(combined_times.keys()):
+                    total_seconds = combined_times[project_name]
+                    f.write(f"{project_name}: {self.format_time(total_seconds)}\n")
             
             self.is_tracking = False
             self.start_time = None
@@ -286,21 +297,143 @@ class TimeTracker:
         if self.is_tracking:
             self.stop_timer()
             
-        # Generate the summary report
-        with open(f"Time_Summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt", 'w') as f:
-            today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
-            today_end = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999).timestamp()
-            
-            for project_id, times in self.daily_records.items():
-                project_name = self.get_project_name_by_id(project_id)
-                if not project_name:
-                    continue
-                    
-                # Get durations for timestamps within today
-                today_times = [times[i+1] for i in range(0, len(times), 2) 
-                             if i+1 < len(times) and today_start <= times[i] <= today_end]
-                total_seconds = sum(today_times) if today_times else 0
+        # Generate the monthly summary report
+        current_month = datetime.now().strftime('%Y%m')
+        monthly_summary_file = f"Time_Summary_{current_month}.txt"
+        
+        # Get all session files for this month
+        session_files = [f for f in os.listdir() if f.startswith('session_') and f.split('_')[1][:6] == current_month]
+        
+        # Aggregate all times for the month
+        monthly_times = {}
+        for session_file in session_files:
+            project_times = self.sum_session_times(session_file, generate_file=False)
+            for project_name, seconds in project_times.items():
+                if project_name not in monthly_times:
+                    monthly_times[project_name] = 0
+                monthly_times[project_name] += seconds
+        
+        # Write monthly summary
+        with open(monthly_summary_file, 'w') as f:
+            for project_name in sorted(monthly_times.keys()):
+                total_seconds = monthly_times[project_name]
                 f.write(f"{project_name}: {self.format_time(total_seconds)}\n")
+
+    def sum_session_times(self, session_file, generate_file=True):
+        """Sum times for each project from a session log file"""
+        project_times = {}  # Dictionary to store total seconds per project
+        
+        try:
+            with open(session_file, 'r') as f:
+                for line in f:
+                    if not line.strip():
+                        continue
+                    
+                    # Split the line into timestamp, project and time
+                    if " - " in line:
+                        _, rest = line.strip().split(" - ", 1)
+                    else:
+                        rest = line.strip()
+                    
+                    parts = rest.split(': ')
+                    if len(parts) != 2:
+                        continue
+                    
+                    project_name = parts[0]
+                    time_str = parts[1]
+                    
+                    try:
+                        h, m, s = map(int, time_str.split(':'))
+                        seconds = h * 3600 + m * 60 + s
+                        if project_name not in project_times:
+                            project_times[project_name] = 0
+                        project_times[project_name] += seconds
+                    except ValueError:
+                        continue
+            
+            if generate_file:
+                # Generate daily summary report (overwrite if exists)
+                session_date = session_file.split('_')[1]  # Extract date from filename
+                summary_file = f"Session_Summary_{session_date}.txt"
+                
+                with open(summary_file, 'w') as f:
+                    for project_name in sorted(project_times.keys()):
+                        total_seconds = project_times[project_name]
+                        f.write(f"{project_name}: {self.format_time(total_seconds)}\n")
+            
+            return project_times
+                    
+        except FileNotFoundError:
+            print(f"Session file {session_file} not found")
+            return {}
+
+    def show_timer_page(self):
+        # Hide preview frame
+        self.preview_frame.pack_forget()
+        
+        # Create and show timer frame
+        self.create_timer_page()
+
+    def create_timer_page(self):
+        self.timer_frame = tk.Frame(self.main_frame)
+        self.timer_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Create new session log file when timer page is created
+        current_date = datetime.now().strftime('%Y%m%d')
+        current_time = datetime.now().strftime('%H%M%S')
+        self.session_log = f"session_{current_date}_{current_time}.txt"
+
+        # Project selection
+        self.project_var = tk.StringVar()
+        self.project_dropdown = ttk.Combobox(self.timer_frame, textvariable=self.project_var, 
+                                           values=list(self.project_data.values()))
+        self.project_dropdown.set("Select Project")
+        self.project_dropdown.pack(pady=20)
+
+        # Timer display
+        self.timer_label = tk.Label(self.timer_frame, text="00:00:00", font=("Arial", 24))
+        self.timer_label.pack(pady=20)
+        
+        # Control buttons frame
+        control_frame = tk.Frame(self.timer_frame)
+        control_frame.pack(pady=10)
+        
+        # Start and Stop buttons in the same line
+        self.start_button = tk.Button(control_frame, text="Start", command=self.start_timer, width=12)
+        self.start_button.pack(side=tk.LEFT, padx=5)
+        
+        self.stop_button = tk.Button(control_frame, text="Stop", command=self.stop_timer, state=tk.DISABLED, width=12)
+        self.stop_button.pack(side=tk.LEFT, padx=5)
+
+        # Bottom buttons frame
+        bottom_frame = tk.Frame(self.timer_frame)
+        bottom_frame.pack(pady=10)
+
+        # Generate report and Back buttons
+        self.report_button = tk.Button(bottom_frame, text="Generate Report", command=self.generate_report, width=12)
+        self.report_button.pack(side=tk.LEFT, padx=5)
+        
+        self.summary_button = tk.Button(bottom_frame, text="Session Summary", 
+                                      command=lambda: self.sum_session_times(self.session_log), width=12)
+        self.summary_button.pack(side=tk.LEFT, padx=5)
+
+        self.back_button = tk.Button(bottom_frame, text="Back to Projects", command=self.show_preview_page, width=12)
+        self.back_button.pack(side=tk.LEFT, padx=5)
+
+        # Initialize timer variables
+        self.current_project = None
+        self.start_time = None
+        self.is_tracking = False
+        self.daily_records = self.load_records()
+        
+        self.update_timer()
+
+    def show_preview_page(self):
+        # Hide timer frame if it exists
+        if hasattr(self, 'timer_frame'):
+            self.timer_frame.pack_forget()
+        # Show preview frame
+        self.preview_frame.pack(fill=tk.BOTH, expand=True)
 
     def run(self):
         self.root.mainloop()

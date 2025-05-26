@@ -1,4 +1,3 @@
-adf112a4-2da6-487b-8f4b-d32eebacb54a|Project 2
-1e6bda30-5746-4dab-87c2-5fd6a6d40e06|Project 3
-30f1af80-1473-40f8-a07d-2f2ca5950926|My project
-2d8156cc-aa82-4757-9e2d-dcb984717c15|First Project
+0b8e3732-d9ef-44a3-8eeb-029c6f8983dd|Project 1
+035a3f08-5826-4108-8ec7-031e994644d2|Project 2
+7a51a9a4-ac85-4c4b-a539-54ea77c22d3f|New Project
