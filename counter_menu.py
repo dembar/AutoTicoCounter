@@ -95,23 +95,30 @@ class TimeTracker:
         project_entry = tk.Entry(entry_frame)
         project_entry.pack(pady=5)
 
-        # Buttons
+        # Add button
         tk.Button(entry_frame, text="Add Project", 
                  command=lambda: self.add_project(project_entry.get(), dialog)).pack(pady=5)
 
-        # Project list
+        # Project list frame
         list_frame = tk.Frame(dialog)
         list_frame.pack(pady=10, padx=10, fill=tk.BOTH, expand=True)
         
-        project_list = tk.Listbox(list_frame)
-        project_list.pack(fill=tk.BOTH, expand=True)
+        # Project list with scrollbar
+        scrollbar = tk.Scrollbar(list_frame)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
-        for project in self.projects:
-            project_list.insert(tk.END, project)
+        project_list = tk.Listbox(list_frame, selectmode=tk.MULTIPLE, yscrollcommand=scrollbar.set)
+        project_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        scrollbar.config(command=project_list.yview)
+        
+        # Fill project list
+        for project_name in self.project_data.values():
+            project_list.insert(tk.END, project_name)
 
         # Delete button
         tk.Button(list_frame, text="Delete Selected", 
-                 command=lambda: self.delete_project(project_list.curselection(), dialog)).pack(pady=5)
+                 command=lambda: self.delete_project(project_list.curselection(), project_list, dialog)).pack(pady=5)
 
     def add_project(self, project_name, dialog):
         if project_name and project_name not in self.project_data.values():
@@ -123,14 +130,17 @@ class TimeTracker:
             dialog.destroy()
             self.show_modify_dialog()
 
-    def delete_project(self, selections, dialog):
+    def delete_project(self, selections, project_list, dialog):
         if selections:
-            indices = list(selections)
-            indices.sort(reverse=True)
-            project_ids = list(self.project_data.keys())
-            for idx in indices:
-                if idx < len(project_ids):
-                    del self.project_data[project_ids[idx]]
+            # Get the selected project names
+            selected_names = [project_list.get(idx) for idx in selections]
+            
+            # Find and delete the corresponding project IDs
+            for project_name in selected_names:
+                project_id = self.get_project_id_by_name(project_name)
+                if project_id in self.project_data:
+                    del self.project_data[project_id]
+            
             self.save_projects()
             self.update_project_list()
             dialog.destroy()
