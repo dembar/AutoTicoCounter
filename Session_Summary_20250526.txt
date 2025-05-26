@@ -1,6 +1,0 @@
-New Project: 00:02:00
-Project 1: 00:02:59
-Project 2: 00:02:43
-Project 3: 00:00:07
-another 1: 00:00:31
-other: 00:00:20
