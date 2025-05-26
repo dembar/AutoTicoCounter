@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import json
 import os
 import calendar
+import uuid
 
 class TimeTracker:
     def __init__(self):
@@ -14,8 +15,11 @@ class TimeTracker:
         # Initialize project management
         self.projects_file = "projects.txt"
         self.time_records_file = "records.txt"
-        self.project_data = {}  # Dict to store project data {id: name}
+        self.project_data = {}  # Dict to store project data {id: (name, hotkey)}
         self.load_projects()
+        
+        # Set up key bindings for hotkeys
+        self.root.bind('<KeyPress>', self.handle_hotkey)
         
         # Create session log file with current date-time
         current_date = datetime.now().strftime('%Y%m%d')
@@ -33,6 +37,27 @@ class TimeTracker:
         
         # Create preview page
         self.create_preview_page()
+
+    def handle_hotkey(self, event):
+        # Only handle number keys 1-9
+        if not event.char.isdigit() or event.char == '0':
+            return
+            
+        # Find project with this hotkey
+        for pid, (name, hotkey) in self.project_data.items():
+            if hotkey == event.char:
+                if self.is_tracking:
+                    # Stop current tracking
+                    self.stop_timer()
+                    
+                # Switch to timer page if not already there
+                if hasattr(self, 'preview_frame') and self.preview_frame.winfo_viewable():
+                    self.show_timer_page()
+                    
+                # Select the project and start timer
+                self.project_var.set(name)
+                self.start_timer()
+                break
 
     def create_preview_page(self):
         self.preview_frame = tk.Frame(self.main_frame)
@@ -57,25 +82,35 @@ class TimeTracker:
 
     def update_project_list(self):
         self.project_listbox.delete(0, tk.END)
-        for name in self.project_data.values():
-            self.project_listbox.insert(tk.END, name)
+        for name, hotkey in self.project_data.values():
+            self.project_listbox.insert(tk.END, f"({hotkey}){name}")
 
     def show_modify_dialog(self):
         dialog = tk.Toplevel(self.root)
         dialog.title("Modify Projects")
         dialog.geometry("300x400")
 
-        # Project entry
+        # Project entry frame with name and hotkey
         entry_frame = tk.Frame(dialog)
         entry_frame.pack(pady=10, padx=10)
         
-        tk.Label(entry_frame, text="Project Name:").pack()
-        project_entry = tk.Entry(entry_frame)
-        project_entry.pack(pady=5)
+        # Project name entry
+        name_frame = tk.Frame(entry_frame)
+        name_frame.pack(fill=tk.X)
+        tk.Label(name_frame, text="Project Name:").pack(side=tk.LEFT)
+        project_entry = tk.Entry(name_frame)
+        project_entry.pack(side=tk.LEFT, padx=5)
+        
+        # Hotkey entry
+        hotkey_frame = tk.Frame(entry_frame)
+        hotkey_frame.pack(fill=tk.X, pady=5)
+        tk.Label(hotkey_frame, text="Hotkey (1-9):").pack(side=tk.LEFT)
+        hotkey_entry = tk.Entry(hotkey_frame, width=5)
+        hotkey_entry.pack(side=tk.LEFT, padx=5)
 
-        # Add button
+        # Add button with both name and hotkey
         tk.Button(entry_frame, text="Add Project", 
-                 command=lambda: self.add_project(project_entry.get(), dialog)).pack(pady=5)
+                 command=lambda: self.add_project(project_entry.get(), hotkey_entry.get(), dialog)).pack(pady=5)
 
         # Project list frame
         list_frame = tk.Frame(dialog)
@@ -91,31 +126,45 @@ class TimeTracker:
         scrollbar.config(command=project_list.yview)
         
         # Fill project list
-        for project_name in self.project_data.values():
-            project_list.insert(tk.END, project_name)
+        for name, hotkey in self.project_data.values():
+            project_list.insert(tk.END, f"({hotkey}){name}")
 
         # Delete button
         tk.Button(list_frame, text="Delete Selected", 
                  command=lambda: self.delete_project(project_list.curselection(), project_list, dialog)).pack(pady=5)
 
-    def add_project(self, project_name, dialog):
-        if project_name and project_name not in self.project_data.values():
-            import uuid
-            project_id = str(uuid.uuid4())
-            self.project_data[project_id] = project_name
-            self.save_projects()
-            self.update_project_list()
-            dialog.destroy()
-            self.show_modify_dialog()
+    def add_project(self, project_name, hotkey, dialog):
+        if not project_name:
+            return
+        
+        # Validate hotkey
+        if not hotkey or not hotkey.isdigit() or int(hotkey) < 1 or int(hotkey) > 9:
+            return
+            
+        # Check if hotkey is already used
+        for pid, (name, existing_hotkey) in self.project_data.items():
+            if existing_hotkey == hotkey:
+                return
+            if name == project_name:
+                return
+        
+        project_id = str(uuid.uuid4())
+        self.project_data[project_id] = (project_name, hotkey)
+        self.save_projects()
+        self.update_project_list()
+        dialog.destroy()
+        self.show_modify_dialog()
 
     def delete_project(self, selections, project_list, dialog):
         if selections:
             # Get the selected project names
-            selected_names = [project_list.get(idx) for idx in selections]
+            selected_texts = [project_list.get(idx) for idx in selections]
             
             # Find and delete the corresponding project IDs
-            for project_name in selected_names:
-                project_id = self.get_project_id_by_name(project_name)
+            for text in selected_texts:
+                # Extract name from "(hotkey)name" format
+                name = text[3:] if text.startswith('(') else text
+                project_id = self.get_project_id_by_name(name)
                 if project_id in self.project_data:
                     del self.project_data[project_id]
             
@@ -129,7 +178,11 @@ class TimeTracker:
             if os.path.exists(self.projects_file):
                 with open(self.projects_file, 'r') as f:
                     projects_data = [line.strip().split('|') for line in f.readlines()]
-                    self.project_data = {pid: name for pid, name in projects_data if pid and name}
+                    self.project_data = {}
+                    for parts in projects_data:
+                        if len(parts) == 3:  # id|name|hotkey format
+                            pid, name, hotkey = parts
+                            self.project_data[pid] = (name, hotkey)
                     if not self.project_data:
                         self.initialize_default_projects()
             else:
@@ -138,24 +191,25 @@ class TimeTracker:
             self.initialize_default_projects()
 
     def initialize_default_projects(self):
-        import uuid
-        default_projects = ["Project 1", "Project 2", "Project 3"]
-        self.project_data = {str(uuid.uuid4()): name for name in default_projects}
+        default_projects = [("Project 1", "1"), ("Project 2", "2"), ("Project 3", "3")]
+        self.project_data = {str(uuid.uuid4()): data for data in default_projects}
         self.save_projects()
 
     def save_projects(self):
         with open(self.projects_file, 'w') as f:
-            for project_id, name in self.project_data.items():
-                f.write(f"{project_id}|{name}\n")
+            for project_id, (name, hotkey) in self.project_data.items():
+                f.write(f"{project_id}|{name}|{hotkey}\n")
 
     def get_project_id_by_name(self, project_name):
-        for pid, name in self.project_data.items():
+        for pid, (name, _) in self.project_data.items():
             if name == project_name:
                 return pid
         return None
 
     def get_project_name_by_id(self, project_id):
-        return self.project_data.get(project_id)
+        if project_id in self.project_data:
+            return self.project_data[project_id][0]
+        return None
 
     def show_preview_page(self):
         self.timer_frame.pack_forget()
@@ -292,6 +346,67 @@ class TimeTracker:
         seconds = seconds % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
+    def show_timer_page(self):
+        # Hide preview frame
+        self.preview_frame.pack_forget()
+        
+        # Create and show timer frame
+        self.create_timer_page()
+
+    def create_timer_page(self):
+        self.timer_frame = tk.Frame(self.main_frame)
+        self.timer_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Create new session log file when timer page is created
+        current_date = datetime.now().strftime('%Y%m%d')
+        current_time = datetime.now().strftime('%H%M%S')
+        self.session_log = f"session_{current_date}_{current_time}.txt"
+
+        # Project selection
+        self.project_var = tk.StringVar()
+        project_names = [name for name, _ in self.project_data.values()]
+        self.project_dropdown = ttk.Combobox(self.timer_frame, textvariable=self.project_var, values=project_names)
+        self.project_dropdown.set("Select Project")
+        self.project_dropdown.pack(pady=20)
+
+        # Timer display
+        self.timer_label = tk.Label(self.timer_frame, text="00:00:00", font=("Arial", 24))
+        self.timer_label.pack(pady=20)
+        
+        # Control buttons frame
+        control_frame = tk.Frame(self.timer_frame)
+        control_frame.pack(pady=10)
+        
+        # Start and Stop buttons in the same line
+        self.start_button = tk.Button(control_frame, text="Start", command=self.start_timer, width=12)
+        self.start_button.pack(side=tk.LEFT, padx=5)
+        
+        self.stop_button = tk.Button(control_frame, text="Stop", command=self.stop_timer, state=tk.DISABLED, width=12)
+        self.stop_button.pack(side=tk.LEFT, padx=5)
+
+        # Bottom buttons frame
+        bottom_frame = tk.Frame(self.timer_frame)
+        bottom_frame.pack(pady=10)
+
+        # Generate report and Back buttons
+        self.report_button = tk.Button(bottom_frame, text="Day Report", command=self.generate_report, width=12)
+        self.report_button.pack(side=tk.LEFT, padx=5)
+        
+        self.summary_button = tk.Button(bottom_frame, text="Month Report", 
+                                      command=lambda: self.sum_session_times(self.session_log), width=12)
+        self.summary_button.pack(side=tk.LEFT, padx=5)
+
+        self.back_button = tk.Button(bottom_frame, text="Back to Projects", command=self.show_preview_page, width=12)
+        self.back_button.pack(side=tk.LEFT, padx=5)
+
+        # Initialize timer variables
+        self.current_project = None
+        self.start_time = None
+        self.is_tracking = False
+        self.daily_records = self.load_records()
+        
+        self.update_timer()
+
     def generate_report(self):
         # If timer is running, stop it first
         if self.is_tracking:
@@ -340,6 +455,8 @@ class TimeTracker:
                         continue
                     
                     project_name = parts[0]
+                    if '(' in project_name:  # Handle "(hotkey)name" format
+                        project_name = project_name[3:]  # Remove "(n)" prefix
                     time_str = parts[1]
                     
                     try:
@@ -366,74 +483,6 @@ class TimeTracker:
         except FileNotFoundError:
             print(f"Session file {session_file} not found")
             return {}
-
-    def show_timer_page(self):
-        # Hide preview frame
-        self.preview_frame.pack_forget()
-        
-        # Create and show timer frame
-        self.create_timer_page()
-
-    def create_timer_page(self):
-        self.timer_frame = tk.Frame(self.main_frame)
-        self.timer_frame.pack(fill=tk.BOTH, expand=True)
-
-        # Create new session log file when timer page is created
-        current_date = datetime.now().strftime('%Y%m%d')
-        current_time = datetime.now().strftime('%H%M%S')
-        self.session_log = f"session_{current_date}_{current_time}.txt"
-
-        # Project selection
-        self.project_var = tk.StringVar()
-        self.project_dropdown = ttk.Combobox(self.timer_frame, textvariable=self.project_var, 
-                                           values=list(self.project_data.values()))
-        self.project_dropdown.set("Select Project")
-        self.project_dropdown.pack(pady=20)
-
-        # Timer display
-        self.timer_label = tk.Label(self.timer_frame, text="00:00:00", font=("Arial", 24))
-        self.timer_label.pack(pady=20)
-        
-        # Control buttons frame
-        control_frame = tk.Frame(self.timer_frame)
-        control_frame.pack(pady=10)
-        
-        # Start and Stop buttons in the same line
-        self.start_button = tk.Button(control_frame, text="Start", command=self.start_timer, width=12)
-        self.start_button.pack(side=tk.LEFT, padx=5)
-        
-        self.stop_button = tk.Button(control_frame, text="Stop", command=self.stop_timer, state=tk.DISABLED, width=12)
-        self.stop_button.pack(side=tk.LEFT, padx=5)
-
-        # Bottom buttons frame
-        bottom_frame = tk.Frame(self.timer_frame)
-        bottom_frame.pack(pady=10)
-
-        # Generate report and Back buttons
-        self.report_button = tk.Button(bottom_frame, text="Generate Report", command=self.generate_report, width=12)
-        self.report_button.pack(side=tk.LEFT, padx=5)
-        
-        self.summary_button = tk.Button(bottom_frame, text="Session Summary", 
-                                      command=lambda: self.sum_session_times(self.session_log), width=12)
-        self.summary_button.pack(side=tk.LEFT, padx=5)
-
-        self.back_button = tk.Button(bottom_frame, text="Back to Projects", command=self.show_preview_page, width=12)
-        self.back_button.pack(side=tk.LEFT, padx=5)
-
-        # Initialize timer variables
-        self.current_project = None
-        self.start_time = None
-        self.is_tracking = False
-        self.daily_records = self.load_records()
-        
-        self.update_timer()
-
-    def show_preview_page(self):
-        # Hide timer frame if it exists
-        if hasattr(self, 'timer_frame'):
-            self.timer_frame.pack_forget()
-        # Show preview frame
-        self.preview_frame.pack(fill=tk.BOTH, expand=True)
 
     def run(self):
         self.root.mainloop()
