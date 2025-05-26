@@ -157,6 +157,10 @@ class TimeTracker:
     def get_project_name_by_id(self, project_id):
         return self.project_data.get(project_id)
 
+    def show_preview_page(self):
+        self.timer_frame.pack_forget()
+        self.preview_frame.pack(fill=tk.BOTH, expand=True)
+
     def load_records(self):
         try:
             if os.path.exists(self.time_records_file):
