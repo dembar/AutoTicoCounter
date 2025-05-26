@@ -1,14 +1,15 @@
 # Project Time Tracker
 
-A simple desktop application that helps you track time spent on different projects. Perfect for freelancers, students, or anyone who needs to monitor time spent on various tasks.
+A simple desktop application built with Python that helps you track time spent on different projects. Perfect for freelancers, students, or anyone who needs to monitor time spent on various tasks.
 
 ## What Does It Do?
 
-- Track how much time you spend on different projects
+- Track how much time you spend on different projects using unique project IDs
 - Show a live timer while you're working
-- Save detailed logs of your work sessions
+- Save detailed logs of your work sessions in text files
 - Create daily and monthly summaries of your time
-- Simple, easy-to-use interface
+- Simple, easy-to-use interface with project management
+- All data stored in human-readable text files
 
 ## Getting Started
 
@@ -29,49 +30,84 @@ A simple desktop application that helps you track time spent on different projec
 ### Running the Application
 
 #### Windows:
-1. Open the folder where you extracted the files
-2. Hold Shift + Right-click in the folder
-3. Choose "Open PowerShell window here"
-4. Type this command and press Enter:
-```powershell
-python counter.py
-```
+1. Open PowerShell (several ways to do this):
+   - Press `Windows + X` and select "Windows PowerShell" or "Terminal"
+   - Hold Shift + Right-click in the project folder and choose "Open PowerShell window here"
+   - Open PowerShell and navigate to your project folder using:
+     ```powershell
+     cd "d:\Projects\AutoCounter"  # Replace with your actual path
+     ```
+
+2. Run the application:
+   ```powershell
+   python counter.py
+   ```
+
+3. The application will create these files automatically:
+   - `projects.txt`: Stores your project list
+   - `records.txt`: Stores your time records
+   - `session_*.txt`: Daily session logs
+   - `Session_Summary_*.txt`: Daily summaries
+   - `Time_Summary_*.txt`: Monthly summaries
 
 #### Mac/Linux:
 1. Open Terminal
-2. Navigate to the project folder (use 'cd' command)
+2. Navigate to the project folder:
+   ```bash
+   cd path/to/AutoCounter
+   ```
 3. Run the application:
-```bash
-python3 counter.py
-```
+   ```bash
+   python3 counter.py
+   ```
 
 ## How to Use
 
-1. **Start the App**
-   - When the app opens, you'll see a dropdown menu with project names
-   - The big timer display shows 00:00:00
+1. **Project Management**
+   - When you first run the app, you'll see the project list page
+   - Click "Modify Projects" to add or remove projects
+   - Each project gets a unique ID to track its time accurately
 
-2. **Track Time**
-   - Pick a project from the dropdown
+2. **Start Tracking Time**
+   - Click "Start Timer" to go to the timer page
+   - Select a project from the dropdown menu
    - Click "Start" to begin timing
-   - The timer will show how long you've been working
+   - The timer shows hours:minutes:seconds
    - Click "Stop" when you're done
 
 3. **View Reports**
-   - "Session Summary": Shows total time for each project today
-   - "Generate Report": Creates a monthly summary
+   - "Session Summary": Shows time tracked in the current session
+   - "Generate Report": Creates a monthly summary of all projects
+   - Click "Back to Projects" to return to the project list
 
-## Files Created by the App
+4. **File Organization**
+   - All data is stored in human-readable text files
+   - Session logs are created automatically
+   - Daily summaries update when you stop timing
+   - Monthly reports are generated on demand
 
-1. **Session Files** (`session_YYYYMMDD_HHMMSS.txt`)
+## Files Used by the App
+
+1. **Project Data** (`projects.txt`)
+   - Stores project information
+   - Format: `project_id|project_name`
+   - Created automatically with default projects
+   - Updated when you add/remove projects
+
+2. **Time Records** (`records.txt`)
+   - Stores all time tracking data
+   - Format: `project_id|timestamp|seconds`
+   - Automatically maintains daily records
+
+3. **Session Files** (`session_YYYYMMDD_HHMMSS.txt`)
    - Created each time you start tracking
-   - Contains detailed entries like:
+   - Contains human-readable entries like:
    ```
    2025-05-24 20:15:25 - Project 1: 00:10:20
    2025-05-24 20:25:39 - Project 2: 00:15:08
    ```
 
-2. **Daily Summary** (`Session_Summary_YYYYMMDD.txt`)
+4. **Daily Summary** (`Session_Summary_YYYYMMDD.txt`)
    - One file per day
    - Shows total time per project for the day
    ```
@@ -79,9 +115,10 @@ python3 counter.py
    Project 2: 01:15:20
    ```
 
-3. **Monthly Summary** (`Time_Summary_YYYYMM.txt`)
+5. **Monthly Summary** (`Time_Summary_YYYYMM.txt`)
    - One file per month
    - Shows total time per project for the entire month
+   - Generated when you click "Generate Report"
 
 ## Common Issues & Solutions
 
