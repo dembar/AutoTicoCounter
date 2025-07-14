@@ -320,7 +320,7 @@ class TimeTracker:
                     combined_times[project] += seconds
             
             # Write daily summary
-            with open(f"Session_Summary_{session_date}.txt", 'w') as f:
+            with open(f"Day_Summary_{session_date}.txt", 'w') as f:
                 for project_name in sorted(combined_times.keys()):
                     total_seconds = combined_times[project_name]
                     f.write(f"{project_name}: {self.format_time(total_seconds)}\n")
@@ -389,13 +389,14 @@ class TimeTracker:
         bottom_frame.pack(pady=10)
 
         # Generate report and Back buttons
-        self.report_button = tk.Button(bottom_frame, text="Day Report", command=self.generate_report, width=12)
-        self.report_button.pack(side=tk.LEFT, padx=5)
-        
-        self.summary_button = tk.Button(bottom_frame, text="Month Report", 
+        self.summary_button = tk.Button(bottom_frame, text="Day Report", 
                                       command=lambda: self.sum_session_times(self.session_log), width=12)
         self.summary_button.pack(side=tk.LEFT, padx=5)
 
+
+        self.report_button = tk.Button(bottom_frame, text="Month Report", command=self.generate_report, width=12)
+        self.report_button.pack(side=tk.LEFT, padx=5)
+        
         self.back_button = tk.Button(bottom_frame, text="Back to Projects", command=self.show_preview_page, width=12)
         self.back_button.pack(side=tk.LEFT, padx=5)
 
@@ -411,10 +412,10 @@ class TimeTracker:
         # If timer is running, stop it first
         if self.is_tracking:
             self.stop_timer()
-            
+
         # Generate the monthly summary report
         current_month = datetime.now().strftime('%Y%m')
-        monthly_summary_file = f"Time_Summary_{current_month}.txt"
+        monthly_summary_file = f"Month_Summary_{current_month}.txt"
         
         # Get all session files for this month
         session_files = [f for f in os.listdir() if f.startswith('session_') and f.split('_')[1][:6] == current_month]
