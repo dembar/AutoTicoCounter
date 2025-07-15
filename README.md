@@ -14,6 +14,19 @@ A simple desktop application built with Python that helps you track time spent o
 
 ### First‑Time Setup (Complete Beginner’s Guide)
 
+### ▶️ Without Python (Standalone Executable)
+
+> No Python install needed
+
+1. Extract `WindowsProgram.zip`
+2. **Windows:** Double‑click `TicoCounter.exe`
+3. **Mac/Linux:**
+   ```bash
+   cd path/to/extracted
+   chmod +x AutoCounter 
+   ./AutoCounter
+   ```
+
 1. **Install Python** (One‑time only):
 
    - Go to [python.org/downloads](https://www.python.org/downloads/)
@@ -55,18 +68,6 @@ A simple desktop application built with Python that helps you track time spent o
    python3 counter.py
    ```
 
-### ▶️ Without Python (Standalone Executable)
-
-> No Python install needed
-
-1. Extract ``
-2. **Windows:** Double‑click ``
-3. **Mac/Linux:**
-   ```bash
-   cd path/to/extracted
-   chmod +x AutoCounter   # if necessary
-   ./AutoCounter
-   ```
 4. The app UI opens immediately
 
 ## How to Use
