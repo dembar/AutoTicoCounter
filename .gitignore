@@ -1,5 +1,11 @@
 *.txt
+*.spec
 
+/build
+/build_env
+/dist
+
+!TicoCounter.spec
 !projects.txt
 !records.txt
 
