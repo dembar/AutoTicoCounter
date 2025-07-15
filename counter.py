@@ -308,7 +308,7 @@ class TimeTracker:
             
             # Generate updated daily summary
             session_date = datetime.now().strftime('%Y%m%d')
-            all_sessions_today = [f for f in os.listdir() if f.startswith(f'session_{session_date}')]
+            all_sessions_today = [f for f in os.listdir() if f.startswith(f'session_{session_date}')] # check later if this is working
             
             # Combine all sessions for today
             combined_times = {}
@@ -320,7 +320,7 @@ class TimeTracker:
                     combined_times[project] += seconds
             
             # Write daily summary
-            with open(f"Session_Summary_{session_date}.txt", 'w') as f:
+            with open(f"Daily_Summary_{session_date}.txt", 'w') as f: #Here is create the daily summary file
                 for project_name in sorted(combined_times.keys()):
                     total_seconds = combined_times[project_name]
                     f.write(f"{project_name}: {self.format_time(total_seconds)}\n")
@@ -392,8 +392,7 @@ class TimeTracker:
         self.report_button = tk.Button(bottom_frame, text="Day Report", command=self.generate_report, width=12)
         self.report_button.pack(side=tk.LEFT, padx=5)
         
-        self.summary_button = tk.Button(bottom_frame, text="Month Report", 
-                                      command=lambda: self.sum_session_times(self.session_log), width=12)
+        self.summary_button = tk.Button(bottom_frame, text="Month Report", command=self.generate_report, width=12)
         self.summary_button.pack(side=tk.LEFT, padx=5)
 
         self.back_button = tk.Button(bottom_frame, text="Back to Projects", command=self.show_preview_page, width=12)
@@ -408,31 +407,23 @@ class TimeTracker:
         self.update_timer()
 
     def generate_report(self):
-        # If timer is running, stop it first
-        if self.is_tracking:
+        if self.is_tracking:          # stop current timer first
             self.stop_timer()
-            
-        # Generate the monthly summary report
+
         current_month = datetime.now().strftime('%Y%m')
-        monthly_summary_file = f"Time_Summary_{current_month}.txt"
-        
-        # Get all session files for this month
-        session_files = [f for f in os.listdir() if f.startswith('session_') and f.split('_')[1][:6] == current_month]
-        
-        # Aggregate all times for the month
         monthly_times = {}
-        for session_file in session_files:
-            project_times = self.sum_session_times(session_file, generate_file=False)
-            for project_name, seconds in project_times.items():
-                if project_name not in monthly_times:
-                    monthly_times[project_name] = 0
-                monthly_times[project_name] += seconds
-        
-        # Write monthly summary
-        with open(monthly_summary_file, 'w') as f:
-            for project_name in sorted(monthly_times.keys()):
-                total_seconds = monthly_times[project_name]
-                f.write(f"{project_name}: {self.format_time(total_seconds)}\n")
+
+        # pick all daily files whose *date* (the third chunk) starts with YYYYMM
+        for fname in (f for f in os.listdir()
+                    if f.startswith('Daily_Summary_')
+                    and f.split('_')[-1][:6] == current_month):
+            for project, secs in self.sum_session_times(fname, generate_file=False).items():
+                monthly_times[project] = monthly_times.get(project, 0) + secs
+
+        with open(f"Montly_Summary_{current_month}.txt", 'w') as f:
+            for project in sorted(monthly_times):
+                f.write(f"{project}: {self.format_time(monthly_times[project])}\n")
+
 
     def sum_session_times(self, session_file, generate_file=True):
         """Sum times for each project from a session log file"""
@@ -471,7 +462,7 @@ class TimeTracker:
             if generate_file:
                 # Generate daily summary report (overwrite if exists)
                 session_date = session_file.split('_')[1]  # Extract date from filename
-                summary_file = f"Session_Summary_{session_date}.txt"
+                summary_file = f"Daily_Summary_{session_date}.txt"
                 
                 with open(summary_file, 'w') as f:
                     for project_name in sorted(project_times.keys()):
