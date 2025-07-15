@@ -12,9 +12,7 @@ A simple desktop application built with Python that helps you track time spent o
 
 ## Getting Started
 
-### First‑Time Setup (Complete Beginner’s Guide)
-
-### ▶️ Without Python (Standalone Executable)
+### ▶️ Starting Without Python (Standalone Executable)
 
 > No Python install needed
 
@@ -26,6 +24,8 @@ A simple desktop application built with Python that helps you track time spent o
    chmod +x AutoCounter 
    ./AutoCounter
    ```
+   
+### First‑Time Setup (Complete Beginner’s Guide)
 
 1. **Install Python** (One‑time only):
 
