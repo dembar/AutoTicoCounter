@@ -1,4 +1,5 @@
 *.txt
 
 !projects.txt
+!records.txt
 
